@@ -107,7 +107,7 @@ export default function HomePage() {
   const isCrashed = phase === "crashed";
 
   return (
-    <main className="min-h-screen bg-[#0d0f14] text-white flex flex-col">
+    <main className="h-screen bg-[#0d0f14] text-white flex flex-col overflow-hidden">
       {/* Crash flash overlay */}
       {isCrashed && (
         <div className="fixed inset-0 pointer-events-none z-10 animate-crash-flash" />
@@ -145,7 +145,7 @@ export default function HomePage() {
         </div>
 
         {/* Bet panel */}
-        <div className="w-full lg:w-80 p-5 shrink-0">
+        <div className="w-full lg:w-80 p-5 shrink-0 overflow-y-auto">
           <BetPanel onRoundStart={handleRoundStart} />
         </div>
       </div>
