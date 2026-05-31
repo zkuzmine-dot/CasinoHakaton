@@ -121,6 +121,19 @@ function Modal({ result, onClose }: { result: RoundResult; onClose: () => void }
           <p className="text-gray-600 text-[10px]">
             Formula: <span className="font-mono">crash = 97 × MAX_U64 / (MAX_U64 − vrf_u64)</span> · 3% house edge baked in.
           </p>
+
+          {result.betTxSig && (
+            <a
+              href={`https://explorer.solana.com/tx/${result.betTxSig}?cluster=devnet`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-1.5 text-xs text-[#00ff88]/70 hover:text-[#00ff88] transition"
+            >
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+              View placeBet tx on Solana Explorer
+              <span className="text-gray-600">(commitment stored before round)</span>
+            </a>
+          )}
         </div>
       </div>
     </div>

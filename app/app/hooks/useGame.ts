@@ -77,6 +77,7 @@ export function useGame() {
         ? currentBet * cashedOutAt * 0.97
         : undefined,
       vrfSeedHex,
+      betTxSig: useGameStore.getState().betTxSig ?? undefined,
     });
   }, [stopAnimation, store]);
 
@@ -169,11 +170,12 @@ export function useGame() {
     const payout = (currentBetRef.current ?? 0) * multiplier * 0.97;
     store.addToHistory({
       roundId,
-      crashPoint, // the actual crash point (where it would have crashed)
+      crashPoint,
       cashedOutAt: multiplier,
       won: true,
       payout,
       vrfSeedHex: roundSeed ? Buffer.from(roundSeed).toString("hex") : undefined,
+      betTxSig: useGameStore.getState().betTxSig ?? undefined,
     });
 
     return multiplier;

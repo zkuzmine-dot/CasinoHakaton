@@ -14,7 +14,8 @@ export interface RoundResult {
   cashedOutAt?: number;
   won: boolean;
   payout?: number;
-  vrfSeedHex?: string; // hex-encoded seed for provably fair verification
+  vrfSeedHex?: string;
+  betTxSig?: string; // placeBet tx — proves commitment was recorded before the round
 }
 
 export interface ToastMessage {
@@ -43,6 +44,7 @@ interface GameState {
 
   // History
   history: RoundResult[];
+  betTxSig: string | null;
 
   // UI state
   toasts: ToastMessage[];
@@ -65,6 +67,7 @@ interface GameState {
   removeToast: (id: string) => void;
   setTxPending: (message: string) => void;
   setBetAmount: (amount: number) => void;
+  setBetTxSig: (sig: string | null) => void;
   resetRound: () => void;
 }
 
@@ -83,6 +86,7 @@ export const useGameStore = create<GameState>((set, _get) => ({
   casinoBalance: 0,
 
   history: [],
+  betTxSig: null,
   toasts: [],
   txPendingMessage: "",
   betAmount: 0.1,
@@ -119,6 +123,7 @@ export const useGameStore = create<GameState>((set, _get) => ({
   setTxPending: (txPendingMessage) => set({ txPendingMessage }),
 
   setBetAmount: (betAmount) => set({ betAmount }),
+  setBetTxSig: (betTxSig) => set({ betTxSig }),
 
   resetRound: () =>
     set({

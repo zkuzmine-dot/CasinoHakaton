@@ -86,7 +86,8 @@ export default function HomePage() {
       message: `Cashed out at ${m.toFixed(2)}x — won +${payout.toFixed(4)} SOL`,
     });
 
-    // Record on-chain in background — no blocking Phantom dialog
+    // Record cashout on-chain — Phantom will ask to sign to lock in the win
+    store.addToast({ type: "info", message: "Sign in Phantom to lock your win on-chain" });
     casino.cashout(store.roundId, Math.floor(m * 100)).catch(() => {
       // error toast already shown inside casino.cashout()
     });
@@ -157,6 +158,11 @@ export default function HomePage() {
           style={{ minWidth: 280, touchAction: "manipulation" }}
         >
           CASH OUT {multiplier.toFixed(2)}x
+          {currentBet && (
+            <span className="block text-base font-semibold opacity-80">
+              +{(currentBet * multiplier * 0.97).toFixed(4)} SOL
+            </span>
+          )}
         </button>
       )}
 

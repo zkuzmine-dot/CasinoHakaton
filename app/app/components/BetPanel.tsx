@@ -41,7 +41,8 @@ export default function BetPanel({ onRoundStart }: Props) {
     store.setTxPending("Confirm in Phantom wallet...");
 
     try {
-      await casino.placeBet(betAmount, roundId, commitment);
+      const sig = await casino.placeBet(betAmount, roundId, commitment);
+      if (sig) store.setBetTxSig(sig);
     } catch (err) {
       // User cancelled or tx rejected — restore state, don't start round
       store.setPhase("idle");
