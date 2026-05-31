@@ -62,13 +62,14 @@ export default function HomePage() {
     if (wallet.connected) casino.refreshBalances();
   }, [wallet.connected]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // After crash: auto-settle and restart after 4 seconds
+  // Reset round after crash (4s) or after cashout (3s) → allows placing new bet
   useEffect(() => {
-    if (phase !== "crashed") return;
+    if (phase !== "crashed" && phase !== "cashed_out") return;
 
+    const delay = phase === "crashed" ? 4000 : 3000;
     const timer = setTimeout(() => {
       store.resetRound();
-    }, 4000);
+    }, delay);
 
     return () => clearTimeout(timer);
   }, [phase, store]);

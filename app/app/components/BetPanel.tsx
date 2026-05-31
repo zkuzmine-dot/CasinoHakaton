@@ -4,7 +4,7 @@ import { useState, useCallback } from "react";
 import { useWallet } from "@solana/wallet-adapter-react";
 import { useGameStore } from "../store/gameStore";
 import { useCasino } from "../hooks/useCasino";
-import { useGame, prepareRound } from "../hooks/useGame";
+import { prepareRound } from "../hooks/useGame";
 
 const PRESET_BETS = [0.05, 0.1, 0.25, 0.5, 1.0];
 
@@ -16,8 +16,6 @@ export default function BetPanel({ onRoundStart }: Props) {
   const wallet = useWallet();
   const store = useGameStore();
   const casino = useCasino();
-  const game = useGame();
-
   const [depositAmount, setDepositAmount] = useState("0.5");
   const [showDeposit, setShowDeposit] = useState(false);
   const [autoCashout, setAutoCashout] = useState("");
@@ -25,16 +23,11 @@ export default function BetPanel({ onRoundStart }: Props) {
   const phase = store.phase;
   const betAmount = store.betAmount;
   const casinoBalance = store.casinoBalance;
-  const multiplier = store.multiplier;
-  const currentBet = store.currentBet;
 
   const canBet =
     wallet.connected &&
     (phase === "idle" || phase === "waiting") &&
     casinoBalance >= betAmount;
-
-  // Show cashout button whenever flying — don't gate on currentBet to avoid timing issues
-  const canCashout = phase === "flying";
 
   const handlePlaceBet = useCallback(async () => {
     if (!wallet.publicKey || !canBet) return;
@@ -48,24 +41,6 @@ export default function BetPanel({ onRoundStart }: Props) {
     store.setAutoCashout(autoCashout ? parseFloat(autoCashout) : null);
     onRoundStart(seed, roundId);
   }, [wallet.publicKey, canBet, casino, betAmount, store, autoCashout, onRoundStart]);
-
-  const handleCashout = useCallback(async () => {
-    const m = game.cashOut();
-    if (!m || !wallet.publicKey) return;
-
-    const payout = (currentBet ?? 0) * m * 0.97;
-
-    // Show feedback immediately — don't wait for on-chain confirmation
-    store.addToast({
-      type: "success",
-      message: `Cashed out at ${m.toFixed(2)}x — won ${payout.toFixed(4)} SOL`,
-    });
-
-    // Fire on-chain tx in background
-    const cashoutX100 = Math.floor(m * 100);
-    const roundId = store.roundId;
-    casino.cashout(roundId, cashoutX100);
-  }, [game, casino, wallet.publicKey, store, currentBet]);
 
   const handleDeposit = useCallback(async () => {
     const amount = parseFloat(depositAmount);
@@ -192,34 +167,26 @@ export default function BetPanel({ onRoundStart }: Props) {
         </div>
       </div>
 
-      {/* Action button */}
+      {/* Action button — cash out is handled by the floating button in page.tsx */}
       <div className="mt-auto">
-        {canCashout ? (
-          <button
-            onClick={handleCashout}
-            className="w-full py-4 text-xl font-black rounded-lg bg-[#00ff88] text-black hover:bg-[#00dd77] transition-all
-                       shadow-[0_0_30px_rgba(0,255,136,0.4)] hover:shadow-[0_0_50px_rgba(0,255,136,0.6)]
-                       animate-pulse-subtle"
-          >
-            CASH OUT{" "}
-            <span className="text-2xl tabular-nums">{multiplier.toFixed(2)}x</span>
-          </button>
-        ) : (
-          <button
-            onClick={handlePlaceBet}
-            disabled={!canBet}
-            className="w-full py-4 text-lg font-bold rounded-lg transition-all disabled:opacity-40 disabled:cursor-not-allowed
-                       bg-[#1a2a1a] border-2 border-[#00ff88]/60 text-[#00ff88]
-                       hover:bg-[#00ff88]/10 hover:border-[#00ff88]
-                       enabled:shadow-[0_0_15px_rgba(0,255,136,0.15)]"
-          >
-            {phase === "tx_pending"
-              ? "Confirming..."
-              : phase === "waiting"
-              ? "Waiting for round..."
-              : "Place Bet"}
-          </button>
-        )}
+        <button
+          onClick={handlePlaceBet}
+          disabled={!canBet}
+          className="w-full py-4 text-lg font-bold rounded-lg transition-all disabled:opacity-40 disabled:cursor-not-allowed
+                     bg-[#1a2a1a] border-2 border-[#00ff88]/60 text-[#00ff88]
+                     hover:bg-[#00ff88]/10 hover:border-[#00ff88]
+                     enabled:shadow-[0_0_15px_rgba(0,255,136,0.15)]"
+        >
+          {phase === "tx_pending"
+            ? "Confirming..."
+            : phase === "waiting"
+            ? "Round starting..."
+            : phase === "flying"
+            ? "Round in progress"
+            : phase === "cashed_out"
+            ? "Cashed out — wait for next round"
+            : "Place Bet"}
+        </button>
       </div>
     </div>
   );
