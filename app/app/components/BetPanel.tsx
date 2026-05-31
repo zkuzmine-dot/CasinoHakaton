@@ -37,17 +37,26 @@ export default function BetPanel({ onRoundStart }: Props) {
     const roundId = Date.now();
     const { seed, commitment } = prepareRound(roundId);
 
-    // Deduct balance locally immediately so UI reflects it
+    store.setPhase("tx_pending");
+    store.setTxPending("Confirm in Phantom wallet...");
+
+    try {
+      await casino.placeBet(betAmount, roundId, commitment);
+    } catch (err) {
+      // User cancelled or tx rejected — restore state, don't start round
+      store.setPhase("idle");
+      store.setTxPending("");
+      const msg = err instanceof Error ? err.message : String(err);
+      if (!msg.toLowerCase().includes("user rejected")) {
+        store.addToast({ type: "error", message: `Bet failed: ${msg}` });
+      }
+      return;
+    }
+
+    // Tx confirmed — now deduct balance and start round
     store.setCasinoBalance(store.casinoBalance - betAmount);
     store.setCurrentBet(betAmount);
     store.setAutoCashout(autoCashout ? parseFloat(autoCashout) : null);
-
-    // Show Phantom approval BEFORE countdown — proper Web3 flow
-    store.setPhase("tx_pending");
-    store.setTxPending("Confirm in Phantom wallet...");
-    await casino.placeBet(betAmount, roundId, commitment);
-
-    // Start round whether tx succeeded or not (balance already deducted locally)
     onRoundStart(seed, roundId);
   }, [wallet.publicKey, canBet, casino, betAmount, store, autoCashout, onRoundStart]);
 

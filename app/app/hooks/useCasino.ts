@@ -134,36 +134,29 @@ export function useCasino() {
       const provider = getProvider();
       if (!provider || !wallet.publicKey) return null;
 
-      // Phase is already set by BetPanel (optimistic start) — don't override it here
-      try {
-        const program = getProgram(provider);
-        const [casinoPDA] = getCasinoPDA();
-        const [playerPDA] = getPlayerPDA(wallet.publicKey);
-        const [betPDA] = getBetPDA(wallet.publicKey, BigInt(roundId));
-        const lamports = solToLamports(solAmount);
+      const program = getProgram(provider);
+      const [casinoPDA] = getCasinoPDA();
+      const [playerPDA] = getPlayerPDA(wallet.publicKey);
+      const [betPDA] = getBetPDA(wallet.publicKey, BigInt(roundId));
+      const lamports = solToLamports(solAmount);
 
-        const sig = await program.methods
-          .placeBet(
-            new BN(lamports.toString()),
-            new BN(roundId),
-            Array.from(vrfCommitment)
-          )
-          .accounts({
-            casinoState: casinoPDA,
-            playerAccount: playerPDA,
-            betAccount: betPDA,
-            player: wallet.publicKey,
-            systemProgram: SystemProgram.programId,
-          })
-          .rpc();
+      const sig = await program.methods
+        .placeBet(
+          new BN(lamports.toString()),
+          new BN(roundId),
+          Array.from(vrfCommitment)
+        )
+        .accounts({
+          casinoState: casinoPDA,
+          playerAccount: playerPDA,
+          betAccount: betPDA,
+          player: wallet.publicKey,
+          systemProgram: SystemProgram.programId,
+        })
+        .rpc();
 
-        await refreshBalances();
-        return sig;
-      } catch (err) {
-        // Tx failed in background — show toast but don't touch phase (round already started)
-        store.addToast({ type: "error", message: `Bet tx failed: ${humanizeError(err)}` });
-        return null;
-      }
+      await refreshBalances();
+      return sig;
     },
     [getProvider, wallet.publicKey, store, refreshBalances]
   );

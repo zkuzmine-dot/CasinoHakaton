@@ -1,207 +1,197 @@
 "use client";
 
-import { useEffect, useRef, useCallback } from "react";
+import { useEffect, useRef } from "react";
 import { useGameStore, GamePhase } from "../store/gameStore";
 
-interface Point {
-  x: number;
-  y: number;
+const K = 0.00006; // must match useGame.ts calcMultiplier
+
+function elapsedFromMultiplier(m: number): number {
+  return Math.log(Math.max(m, 1)) / K;
 }
 
-const HISTORY_POINTS = 200;
-
 function phaseColor(phase: GamePhase): string {
-  if (phase === "crashed") return "#ff4757";
-  if (phase === "cashed_out") return "#00ff88";
-  return "#00ff88";
+  return phase === "crashed" ? "#ff4757" : "#00ff88";
 }
 
 export default function CrashChart() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const pointsRef = useRef<Point[]>([]);
-  const animFrameRef = useRef<number>(0);
-  const lastTickRef = useRef<number>(0);
 
   const phase = useGameStore((s) => s.phase);
   const multiplier = useGameStore((s) => s.multiplier);
   const crashPoint = useGameStore((s) => s.crashPoint);
 
-  const draw = useCallback(() => {
+  useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
 
-    const W = canvas.width;
-    const H = canvas.height;
-    const PAD = { top: 20, right: 20, bottom: 40, left: 55 };
-    const plotW = W - PAD.left - PAD.right;
-    const plotH = H - PAD.top - PAD.bottom;
+    function draw() {
+      const ctx = canvas!.getContext("2d");
+      if (!ctx) return;
 
-    // Background
-    ctx.clearRect(0, 0, W, H);
-    ctx.fillStyle = "#0d0f14";
-    ctx.fillRect(0, 0, W, H);
+      const dpr = window.devicePixelRatio || 1;
+      const W = canvas!.offsetWidth;
+      const H = canvas!.offsetHeight;
+      if (W === 0 || H === 0) return;
 
-    // Grid
-    ctx.strokeStyle = "rgba(255,255,255,0.05)";
-    ctx.lineWidth = 1;
-    const gridLines = [1, 1.5, 2, 3, 5, 10];
-    const maxMultiplier = Math.max(multiplier * 1.1, 2);
+      // Sync canvas buffer to physical pixels
+      const pw = Math.round(W * dpr);
+      const ph = Math.round(H * dpr);
+      if (canvas!.width !== pw || canvas!.height !== ph) {
+        canvas!.width = pw;
+        canvas!.height = ph;
+      }
+      // Set exact DPR transform every frame (never accumulate)
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
-    gridLines.forEach((gm) => {
-      if (gm > maxMultiplier) return;
-      const yPct = 1 - Math.log(gm) / Math.log(maxMultiplier);
-      const y = PAD.top + yPct * plotH;
-      ctx.beginPath();
-      ctx.moveTo(PAD.left, y);
-      ctx.lineTo(W - PAD.right, y);
-      ctx.stroke();
+      const PAD = { top: 20, right: 20, bottom: 40, left: 55 };
+      const plotW = W - PAD.left - PAD.right;
+      const plotH = H - PAD.top - PAD.bottom;
 
-      ctx.fillStyle = "rgba(255,255,255,0.3)";
-      ctx.font = "11px Inter, monospace";
+      const currentMultiplier = phase === "idle" || phase === "waiting" ? 1.0 : multiplier;
+      const maxMultiplier = Math.max(currentMultiplier * 1.15, 2.0);
+
+      const maxElapsed = elapsedFromMultiplier(maxMultiplier);
+
+      const toX = (m: number) =>
+        PAD.left + (elapsedFromMultiplier(m) / Math.max(maxElapsed, 1)) * plotW;
+
+      const toY = (m: number) => {
+        const logM = Math.log(Math.max(m, 1));
+        const logMax = Math.log(Math.max(maxMultiplier, 1.01));
+        return PAD.top + plotH * (1 - logM / logMax);
+      };
+
+      // ── clear ─────────────────────────────────────────────────
+      ctx.clearRect(0, 0, W, H);
+      ctx.fillStyle = "#0d0f14";
+      ctx.fillRect(0, 0, W, H);
+
+      // ── grid lines ────────────────────────────────────────────
+      const gridMultipliers = [1, 1.5, 2, 3, 5, 10, 20, 50, 100].filter(
+        (v) => v <= maxMultiplier
+      );
+      ctx.strokeStyle = "rgba(255,255,255,0.05)";
+      ctx.lineWidth = 1;
+      ctx.font = "11px monospace";
       ctx.textAlign = "right";
-      ctx.fillText(`${gm.toFixed(2)}x`, PAD.left - 6, y + 4);
-    });
+      ctx.fillStyle = "rgba(255,255,255,0.3)";
 
-    // Time axis
-    ctx.strokeStyle = "rgba(255,255,255,0.08)";
-    for (let i = 0; i <= 5; i++) {
-      const x = PAD.left + (i / 5) * plotW;
-      ctx.beginPath();
-      ctx.moveTo(x, PAD.top);
-      ctx.lineTo(x, H - PAD.bottom);
-      ctx.stroke();
-    }
-
-    if (pointsRef.current.length < 2) return;
-
-    const color = phaseColor(phase);
-
-    // Glowing curve
-    const pts = pointsRef.current;
-    const maxX = pts[pts.length - 1].x;
-
-    const toCanvasX = (px: number) => PAD.left + (px / Math.max(maxX, 1)) * plotW;
-    const toCanvasY = (pm: number) => {
-      const logM = Math.log(Math.max(pm, 1));
-      const logMax = Math.log(Math.max(maxMultiplier, 1.01));
-      return PAD.top + plotH - (logM / logMax) * plotH;
-    };
-
-    // Glow layers
-    [8, 4, 2, 1].forEach((blur) => {
-      ctx.save();
-      ctx.shadowColor = color;
-      ctx.shadowBlur = blur * 4;
-      ctx.strokeStyle = color;
-      ctx.lineWidth = blur === 1 ? 2.5 : 1;
-      ctx.globalAlpha = blur === 1 ? 1 : 0.3 / blur;
-
-      ctx.beginPath();
-      pts.forEach((pt, i) => {
-        const cx = toCanvasX(pt.x);
-        const cy = toCanvasY(pt.y);
-        if (i === 0) ctx.moveTo(cx, cy);
-        else ctx.lineTo(cx, cy);
+      gridMultipliers.forEach((gm) => {
+        const y = toY(gm);
+        ctx.beginPath();
+        ctx.moveTo(PAD.left, y);
+        ctx.lineTo(W - PAD.right, y);
+        ctx.stroke();
+        ctx.fillText(`${gm.toFixed(gm < 10 ? 2 : 0)}x`, PAD.left - 6, y + 4);
       });
-      ctx.stroke();
+
+      // Vertical time guides
+      ctx.strokeStyle = "rgba(255,255,255,0.04)";
+      for (let i = 0; i <= 4; i++) {
+        const x = PAD.left + (i / 4) * plotW;
+        ctx.beginPath();
+        ctx.moveTo(x, PAD.top);
+        ctx.lineTo(x, H - PAD.bottom);
+        ctx.stroke();
+      }
+
+      // ── curve ─────────────────────────────────────────────────
+      if (phase === "idle" || phase === "waiting") {
+        ctx.save();
+        ctx.strokeStyle = "rgba(0,255,136,0.12)";
+        ctx.lineWidth = 1.5;
+        ctx.setLineDash([4, 6]);
+        ctx.beginPath();
+        ctx.moveTo(toX(1), toY(1));
+        let m = 1.0;
+        while (m < maxMultiplier) {
+          m = Math.min(m * 1.02, maxMultiplier);
+          ctx.lineTo(toX(m), toY(m));
+        }
+        ctx.stroke();
+        ctx.restore();
+        return;
+      }
+
+      const color = phaseColor(phase);
+      const endM = phase === "crashed" && crashPoint ? crashPoint : currentMultiplier;
+
+      const points: Array<{ x: number; y: number }> = [];
+      let m = 1.0;
+      const step = endM / 120;
+      while (m <= endM) {
+        points.push({ x: toX(m), y: toY(m) });
+        m += Math.max(step, 0.001);
+      }
+      points.push({ x: toX(endM), y: toY(endM) });
+
+      if (points.length < 2) return;
+
+      // Glow layers
+      [6, 3, 1].forEach((blur) => {
+        ctx.save();
+        ctx.shadowColor = color;
+        ctx.shadowBlur = blur * 5;
+        ctx.strokeStyle = color;
+        ctx.lineWidth = blur === 1 ? 2.5 : 1;
+        ctx.globalAlpha = blur === 1 ? 1 : 0.25;
+        ctx.lineJoin = "round";
+        ctx.beginPath();
+        points.forEach((p, i) =>
+          i === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y)
+        );
+        ctx.stroke();
+        ctx.restore();
+      });
+
+      // Fill under curve
+      ctx.save();
+      ctx.beginPath();
+      points.forEach((p, i) =>
+        i === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y)
+      );
+      const last = points[points.length - 1];
+      ctx.lineTo(last.x, H - PAD.bottom);
+      ctx.lineTo(PAD.left, H - PAD.bottom);
+      ctx.closePath();
+      const grad = ctx.createLinearGradient(0, PAD.top, 0, H - PAD.bottom);
+      grad.addColorStop(0, `${color}20`);
+      grad.addColorStop(1, "transparent");
+      ctx.fillStyle = grad;
+      ctx.fill();
       ctx.restore();
-    });
 
-    // Fill under curve
-    ctx.save();
-    ctx.beginPath();
-    pts.forEach((pt, i) => {
-      const cx = toCanvasX(pt.x);
-      const cy = toCanvasY(pt.y);
-      if (i === 0) ctx.moveTo(cx, cy);
-      else ctx.lineTo(cx, cy);
-    });
-    ctx.lineTo(toCanvasX(pts[pts.length - 1].x), H - PAD.bottom);
-    ctx.lineTo(PAD.left, H - PAD.bottom);
-    ctx.closePath();
-    const grad = ctx.createLinearGradient(0, PAD.top, 0, H - PAD.bottom);
-    grad.addColorStop(0, `${color}22`);
-    grad.addColorStop(1, "transparent");
-    ctx.fillStyle = grad;
-    ctx.fill();
-    ctx.restore();
-
-    // Current multiplier dot
-    if (pts.length > 0) {
-      const last = pts[pts.length - 1];
-      const cx = toCanvasX(last.x);
-      const cy = toCanvasY(last.y);
-
+      // Endpoint dot
       ctx.save();
       ctx.shadowColor = color;
       ctx.shadowBlur = 20;
       ctx.fillStyle = color;
       ctx.beginPath();
-      ctx.arc(cx, cy, 5, 0, Math.PI * 2);
+      ctx.arc(last.x, last.y, 5, 0, Math.PI * 2);
       ctx.fill();
       ctx.restore();
-    }
 
-    // Crashed line
-    if (phase === "crashed" && crashPoint) {
-      const cy = toCanvasY(crashPoint);
-      ctx.save();
-      ctx.strokeStyle = "#ff4757";
-      ctx.setLineDash([6, 4]);
-      ctx.lineWidth = 1.5;
-      ctx.globalAlpha = 0.6;
-      ctx.beginPath();
-      ctx.moveTo(PAD.left, cy);
-      ctx.lineTo(W - PAD.right, cy);
-      ctx.stroke();
-      ctx.restore();
-    }
-  }, [phase, multiplier, crashPoint]);
-
-  // Accumulate points when flying
-  useEffect(() => {
-    if (phase === "waiting" || phase === "idle") {
-      pointsRef.current = [];
-      lastTickRef.current = 0;
-    }
-
-    if (phase === "flying" || phase === "crashed" || phase === "cashed_out") {
-      const now = performance.now();
-      if (lastTickRef.current === 0) lastTickRef.current = now;
-      const elapsed = now - lastTickRef.current;
-
-      // Only add point every ~50ms to keep array size manageable
-      if (elapsed > 40 || pointsRef.current.length === 0) {
-        lastTickRef.current = now;
-        const totalElapsed = pointsRef.current.length > 0
-          ? pointsRef.current[pointsRef.current.length - 1].x + elapsed
-          : 0;
-        pointsRef.current = [
-          ...pointsRef.current,
-          { x: totalElapsed, y: multiplier },
-        ].slice(-HISTORY_POINTS);
+      // Crashed dashed line
+      if (phase === "crashed" && crashPoint) {
+        const cy = toY(crashPoint);
+        ctx.save();
+        ctx.strokeStyle = "#ff475780";
+        ctx.lineWidth = 1;
+        ctx.setLineDash([5, 4]);
+        ctx.beginPath();
+        ctx.moveTo(PAD.left, cy);
+        ctx.lineTo(W - PAD.right, cy);
+        ctx.stroke();
+        ctx.restore();
       }
     }
 
     draw();
-  }, [phase, multiplier, draw]);
 
-  // Resize canvas to match container
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ro = new ResizeObserver(() => {
-      canvas.width = canvas.offsetWidth * window.devicePixelRatio;
-      canvas.height = canvas.offsetHeight * window.devicePixelRatio;
-      const ctx = canvas.getContext("2d");
-      ctx?.scale(window.devicePixelRatio, window.devicePixelRatio);
-      draw();
-    });
+    const ro = new ResizeObserver(draw);
     ro.observe(canvas);
     return () => ro.disconnect();
-  }, [draw]);
+  }, [phase, multiplier, crashPoint]);
 
   return (
     <canvas
