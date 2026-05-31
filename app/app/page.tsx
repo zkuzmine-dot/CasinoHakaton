@@ -23,6 +23,9 @@ export default function HomePage() {
   const store = useGameStore();
 
   const phase = store.phase;
+  const multiplier = store.multiplier;
+  const currentBet = store.currentBet;
+  const isFlying = phase === "flying";
 
   /**
    * Called by BetPanel after a bet is placed on-chain.
@@ -123,6 +126,34 @@ export default function HomePage() {
       <div className="px-6 pb-6 bg-[#0a0c10]">
         <FairnessVerifier />
       </div>
+
+      {/* Floating CASH OUT button — fixed bottom center, always on top, large tap target */}
+      {isFlying && (
+        <button
+          onClick={async () => {
+            const m = game.cashOut();
+            if (!m) return;
+            const payout = (currentBet ?? 0) * m * 0.97;
+            store.addToast({
+              type: "success",
+              message: `Cashed out at ${m.toFixed(2)}x — won ${payout.toFixed(4)} SOL`,
+            });
+            if (wallet.publicKey) {
+              casino.cashout(store.roundId, Math.floor(m * 100));
+            }
+          }}
+          className="fixed bottom-24 left-1/2 -translate-x-1/2 z-50
+                     px-10 py-5 text-2xl font-black rounded-2xl
+                     bg-[#00ff88] text-black
+                     shadow-[0_0_40px_rgba(0,255,136,0.7)]
+                     animate-pulse-subtle
+                     active:scale-95 transition-transform
+                     select-none"
+          style={{ minWidth: 280, touchAction: "manipulation" }}
+        >
+          CASH OUT {multiplier.toFixed(2)}x
+        </button>
+      )}
 
       {/* Toasts */}
       <TransactionToasts />

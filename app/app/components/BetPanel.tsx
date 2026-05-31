@@ -33,8 +33,8 @@ export default function BetPanel({ onRoundStart }: Props) {
     (phase === "idle" || phase === "waiting") &&
     casinoBalance >= betAmount;
 
-  const canCashout =
-    phase === "flying" && currentBet != null;
+  // Show cashout button whenever flying — don't gate on currentBet to avoid timing issues
+  const canCashout = phase === "flying";
 
   const handlePlaceBet = useCallback(async () => {
     if (!wallet.publicKey || !canBet) return;
