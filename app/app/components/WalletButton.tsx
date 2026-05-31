@@ -12,10 +12,11 @@ export default function WalletButton() {
   const walletBalance = useGameStore((s) => s.walletBalance);
   const { refreshBalances } = useCasino();
 
-  // Only fetch once on connect — no polling to avoid RPC rate limits.
-  // Balance updates happen after each transaction in useCasino.ts.
+  // Wait 4s after connect so Phantom's burst subscriptions settle first.
   useEffect(() => {
-    if (connected) refreshBalances();
+    if (!connected) return;
+    const t = setTimeout(refreshBalances, 4000);
+    return () => clearTimeout(t);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [connected]);
 

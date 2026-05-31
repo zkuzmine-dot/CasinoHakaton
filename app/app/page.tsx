@@ -13,6 +13,7 @@ const BetPanel = dynamic(() => import("./components/BetPanel"), { ssr: false });
 const CrashChart = dynamic(() => import("./components/CrashChart"), { ssr: false });
 const MultiplierDisplay = dynamic(() => import("./components/MultiplierDisplay"), { ssr: false });
 const RoundHistory = dynamic(() => import("./components/RoundHistory"), { ssr: false });
+const FairnessVerifier = dynamic(() => import("./components/FairnessVerifier"), { ssr: false });
 const TransactionToasts = dynamic(() => import("./components/TransactionToast"), { ssr: false });
 
 export default function HomePage() {
@@ -121,9 +122,12 @@ export default function HomePage() {
         </div>
       </div>
 
-      {/* Round history */}
+      {/* Round history + fairness verifier */}
       <div className="px-6 py-3 border-t border-gray-800/60 bg-[#0a0c10]">
         <RoundHistory />
+      </div>
+      <div className="px-6 pb-6 bg-[#0a0c10]">
+        <FairnessVerifier />
       </div>
 
       {/* Toasts */}

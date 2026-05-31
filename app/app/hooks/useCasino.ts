@@ -12,7 +12,6 @@ import {
   getBetPDA,
   lamportsToSol,
   solToLamports,
-  LAMPORTS_PER_SOL,
 } from "../lib/program";
 import { useGameStore } from "../store/gameStore";
 
@@ -47,13 +46,15 @@ export function useCasino() {
   }, [connection, wallet]);
 
   /** Fetch on-chain casino balance and player balance */
-  const refreshBalances = useCallback(async () => {
+  const refreshBalances = useCallback(async (retryMs = 0) => {
     if (!wallet.publicKey) return;
 
+    if (retryMs > 0) {
+      await new Promise((r) => setTimeout(r, retryMs));
+    }
+
     try {
-      const [walletLamports] = await Promise.all([
-        connection.getBalance(wallet.publicKey),
-      ]);
+      const walletLamports = await connection.getBalance(wallet.publicKey);
       store.setWalletBalance(lamportsToSol(walletLamports));
 
       const provider = getProvider();
@@ -66,10 +67,15 @@ export function useCasino() {
         const playerAccount = await program.account.playerAccount.fetch(playerPDA);
         store.setCasinoBalance(lamportsToSol(Number(playerAccount.balance)));
       } catch {
-        // Account doesn't exist yet — balance is 0
         store.setCasinoBalance(0);
       }
     } catch (err) {
+      const msg = String(err);
+      if (msg.includes("429") || msg.includes("rate limit")) {
+        // silently retry once after 6s
+        setTimeout(() => refreshBalances(0), 6000);
+        return;
+      }
       console.error("refreshBalances error:", err);
     }
   }, [wallet.publicKey, connection, getProvider, store]);
