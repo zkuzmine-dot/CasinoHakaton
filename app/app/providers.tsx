@@ -1,29 +1,38 @@
 "use client";
 
-import { ReactNode, useMemo } from "react";
+import React, { ReactNode, useMemo } from "react";
 import { ConnectionProvider, WalletProvider } from "@solana/wallet-adapter-react";
-import { WalletAdapterNetwork } from "@solana/wallet-adapter-base";
 import { PhantomWalletAdapter } from "@solana/wallet-adapter-wallets";
 import { WalletModalProvider } from "@solana/wallet-adapter-react-ui";
-import { clusterApiUrl } from "@solana/web3.js";
-
-// Import wallet adapter CSS
 import "@solana/wallet-adapter-react-ui/styles.css";
+
+// Cast to avoid React 18 / wallet-adapter FC type mismatch
+const Conn = ConnectionProvider as unknown as React.FC<{
+  endpoint: string;
+  children: ReactNode;
+}>;
+const WalletProv = WalletProvider as unknown as React.FC<{
+  wallets: PhantomWalletAdapter[];
+  autoConnect?: boolean;
+  children: ReactNode;
+}>;
+const ModalProv = WalletModalProvider as unknown as React.FC<{
+  children: ReactNode;
+}>;
 
 interface Props {
   children: ReactNode;
 }
 
 export function WalletContextProvider({ children }: Props) {
-  const network = WalletAdapterNetwork.Devnet;
-  const endpoint = useMemo(() => clusterApiUrl(network), [network]);
+  const endpoint = useMemo(() => "https://rpc.ankr.com/solana_devnet", []);
   const wallets = useMemo(() => [new PhantomWalletAdapter()], []);
 
   return (
-    <ConnectionProvider endpoint={endpoint}>
-      <WalletProvider wallets={wallets} autoConnect>
-        <WalletModalProvider>{children}</WalletModalProvider>
-      </WalletProvider>
-    </ConnectionProvider>
+    <Conn endpoint={endpoint}>
+      <WalletProv wallets={wallets} autoConnect>
+        <ModalProv>{children}</ModalProv>
+      </WalletProv>
+    </Conn>
   );
 }

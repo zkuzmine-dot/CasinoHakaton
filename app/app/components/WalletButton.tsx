@@ -15,7 +15,7 @@ export default function WalletButton() {
   useEffect(() => {
     if (connected) {
       refreshBalances();
-      const interval = setInterval(refreshBalances, 15000);
+      const interval = setInterval(refreshBalances, 60000);
       return () => clearInterval(interval);
     }
   }, [connected, refreshBalances]);
