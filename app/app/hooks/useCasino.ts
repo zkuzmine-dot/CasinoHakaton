@@ -183,10 +183,12 @@ export function useCasino() {
           })
           .rpc();
 
+        store.setTxPending("");
         return sig;
       } catch (err) {
-        console.error("cashout tx failed:", err);
-        return null;
+        store.setTxPending("");
+        store.addToast({ type: "error", message: `Cashout failed: ${humanizeError(err)}` });
+        throw err;
       }
     },
     [getProvider, wallet.publicKey, store]
@@ -231,7 +233,7 @@ export function useCasino() {
         await refreshBalances();
         return true;
       } catch (err) {
-        console.error("settleRound error:", err);
+        store.addToast({ type: "error", message: `Settlement failed: ${humanizeError(err)}` });
         return false;
       }
     },

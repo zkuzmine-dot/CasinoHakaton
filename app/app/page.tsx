@@ -40,16 +40,17 @@ export default function HomePage() {
         if (!wallet.publicKey) return;
         const cashoutX100 = Math.floor(cashoutMultiplier * 100);
 
+        const ok = await casino.settleRound(roundId, cashoutX100, capturedSeed, wallet.publicKey);
+        await casino.refreshBalances();
+
         const currentBet = store.currentBet ?? 0;
         const payout = currentBet * cashoutMultiplier * 0.97;
-        store.addToast({
-          type: "success",
-          message: `Auto cashed out at ${cashoutMultiplier.toFixed(2)}x — won ${payout.toFixed(4)} SOL`,
-        });
-
-        // Use the original seed from this round — not a new one
-        await casino.settleRound(roundId, cashoutX100, capturedSeed, wallet.publicKey);
-        await casino.refreshBalances();
+        if (ok) {
+          store.addToast({
+            type: "success",
+            message: `Auto cashed out at ${cashoutMultiplier.toFixed(2)}x — won ${payout.toFixed(4)} SOL`,
+          });
+        }
       });
 
       return cleanup;
@@ -73,6 +74,23 @@ export default function HomePage() {
 
     return () => clearTimeout(timer);
   }, [phase, store]);
+
+  const handleCashOut = useCallback(() => {
+    const m = game.cashOut();
+    if (!m) return;
+
+    const payout = (currentBet ?? 0) * m * 0.97;
+    store.setCasinoBalance(store.casinoBalance + payout);
+    store.addToast({
+      type: "success",
+      message: `Cashed out at ${m.toFixed(2)}x — won +${payout.toFixed(4)} SOL`,
+    });
+
+    // Record on-chain in background — no blocking Phantom dialog
+    casino.cashout(store.roundId, Math.floor(m * 100)).catch(() => {
+      // error toast already shown inside casino.cashout()
+    });
+  }, [game, casino, store, currentBet]);
 
   const isCrashed = phase === "crashed";
 
@@ -128,19 +146,7 @@ export default function HomePage() {
       {/* Floating CASH OUT button — fixed bottom center, always on top, large tap target */}
       {isFlying && (
         <button
-          onClick={() => {
-            const m = game.cashOut();
-            if (!m) return;
-            const payout = (currentBet ?? 0) * m * 0.97;
-            // Credit winnings to local balance immediately
-            store.setCasinoBalance(store.casinoBalance + payout);
-            store.addToast({
-              type: "success",
-              message: `Cashed out at ${m.toFixed(2)}x — won +${payout.toFixed(4)} SOL`,
-            });
-            // Record on-chain in background
-            if (wallet.publicKey) casino.cashout(store.roundId, Math.floor(m * 100));
-          }}
+          onClick={handleCashOut}
           className="fixed bottom-24 left-1/2 -translate-x-1/2 z-50
                      px-10 py-5 text-2xl font-black rounded-2xl
                      bg-[#00ff88] text-black
