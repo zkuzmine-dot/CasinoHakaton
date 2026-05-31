@@ -1,0 +1,77 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --color-accent: #00ff88;
+  --color-danger: #ff4757;
+  --color-bg: #0d0f14;
+  --color-surface: #1a1d26;
+}
+
+body {
+  background: var(--color-bg);
+  overflow-x: hidden;
+}
+
+/* Hide scrollbar but keep scroll */
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
+}
+.scrollbar-none {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* Wallet adapter overrides */
+.wallet-adapter-button {
+  font-family: var(--font-space), sans-serif !important;
+}
+
+@keyframes slide-in {
+  from {
+    opacity: 0;
+    transform: translateX(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  10%, 50%, 90% { transform: translateX(-6px); }
+  30%, 70% { transform: translateX(6px); }
+}
+
+@keyframes crash-flash {
+  0% { background: rgba(255, 71, 87, 0.25); }
+  100% { background: rgba(255, 71, 87, 0); }
+}
+
+@keyframes pulse-subtle {
+  0%, 100% { box-shadow: 0 0 30px rgba(0,255,136,0.4); }
+  50% { box-shadow: 0 0 50px rgba(0,255,136,0.7); }
+}
+
+.animate-slide-in {
+  animation: slide-in 0.3s ease-out forwards;
+}
+
+.animate-shake {
+  animation: shake 0.5s ease-in-out;
+}
+
+.animate-crash-flash {
+  animation: crash-flash 0.8s ease-out forwards;
+}
+
+.animate-pulse-subtle {
+  animation: pulse-subtle 1.5s ease-in-out infinite;
+}
+
+/* Number transitions */
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+}
