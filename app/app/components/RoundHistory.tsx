@@ -10,9 +10,13 @@ function verifySeed(result: RoundResult) {
     const seed = Uint8Array.from(Buffer.from(result.vrfSeedHex, "hex"));
     const roundIdBytes = new Uint8Array(8);
     new DataView(roundIdBytes.buffer).setBigUint64(0, BigInt(result.roundId), true);
+
+    // Commitment = SHA256(seed || roundId) — matches placeBet on-chain record
     const hash = sha256(new Uint8Array([...seed, ...roundIdBytes]));
     const commitment = Buffer.from(hash).toString("hex");
-    const vrfU64 = new DataView(hash.buffer).getBigUint64(0, true);
+
+    // Crash point = raw seed[0..8] as u64 — matches contract settle_round formula
+    const vrfU64 = new DataView(seed.buffer).getBigUint64(0, true);
     const MAX = BigInt("18446744073709551615");
     const x100 = (BigInt(97) * MAX) / (MAX - vrfU64);
     const clamped = x100 > BigInt(10000) ? BigInt(10000) : x100;

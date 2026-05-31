@@ -59,25 +59,17 @@ export function getBetPDA(playerPubkey: PublicKey, roundId: bigint): [PublicKey,
  *
  * Returns crash point as a number (e.g. 2.34 means 2.34x)
  */
-export function deriveCrashPoint(seed: Uint8Array, roundId: bigint): number {
-  // Hash(seed || round_id_le_bytes) → same as on-chain
-  const roundIdBytes = new Uint8Array(8);
-  const view = new DataView(roundIdBytes.buffer);
-  view.setBigUint64(0, roundId, true); // little-endian
-
-  const hash = sha256(new Uint8Array([...seed, ...roundIdBytes]));
-
-  // First 8 bytes as little-endian u64
-  const hashView = new DataView(hash.buffer);
-  const vrfU64 = hashView.getBigUint64(0, true);
+export function deriveCrashPoint(seed: Uint8Array, _roundId: bigint): number {
+  // Contract uses raw seed[0..8] as little-endian u64 — NOT hash(seed+roundId)
+  const view = new DataView(seed.buffer, seed.byteOffset, seed.byteLength);
+  const vrfU64 = view.getBigUint64(0, true);
 
   const MAX_U64 = BigInt("18446744073709551615");
 
-  // crash_x100 = floor(9700 * MAX_U64 / (MAX_U64 - vrfU64))
   const numerator = BigInt(97) * MAX_U64;
   const denominator = MAX_U64 - vrfU64;
 
-  if (denominator === 0n) return 100.0; // 100x cap
+  if (denominator === 0n) return 100.0;
 
   const crashX100 = numerator / denominator;
   const clamped = crashX100 > BigInt(10000) ? BigInt(10000) : crashX100;

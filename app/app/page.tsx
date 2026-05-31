@@ -86,12 +86,23 @@ export default function HomePage() {
       message: `Cashed out at ${m.toFixed(2)}x — won +${payout.toFixed(4)} SOL`,
     });
 
-    // Record cashout on-chain — Phantom will ask to sign to lock in the win
-    store.addToast({ type: "info", message: "Sign in Phantom to lock your win on-chain" });
-    casino.cashout(store.roundId, Math.floor(m * 100)).catch(() => {
-      // error toast already shown inside casino.cashout()
-    });
-  }, [game, casino, store, currentBet]);
+    const roundId = store.roundId;
+    const cashoutX100 = Math.floor(m * 100);
+    const crashPointX100 = Math.round((store.crashPoint ?? 0) * 100);
+    const seed = store.roundSeed;
+
+    // Step 1: record cashout multiplier on-chain
+    store.addToast({ type: "info", message: "Step 1/2: confirm cashout in Phantom" });
+    casino.cashout(roundId, cashoutX100)
+      .then(() => {
+        // Step 2: settle round — this actually credits playerAccount.balance
+        if (!seed || !wallet.publicKey || crashPointX100 <= 0) return;
+        store.addToast({ type: "info", message: "Step 2/2: confirm settlement in Phantom" });
+        return casino.settleRound(roundId, crashPointX100, seed, wallet.publicKey);
+      })
+      .then(() => casino.refreshBalances())
+      .catch(() => {});
+  }, [game, casino, store, currentBet, wallet.publicKey]);
 
   const isCrashed = phase === "crashed";
 
