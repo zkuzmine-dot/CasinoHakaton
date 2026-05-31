@@ -128,17 +128,18 @@ export default function HomePage() {
       {/* Floating CASH OUT button — fixed bottom center, always on top, large tap target */}
       {isFlying && (
         <button
-          onClick={async () => {
+          onClick={() => {
             const m = game.cashOut();
             if (!m) return;
             const payout = (currentBet ?? 0) * m * 0.97;
+            // Credit winnings to local balance immediately
+            store.setCasinoBalance(store.casinoBalance + payout);
             store.addToast({
               type: "success",
-              message: `Cashed out at ${m.toFixed(2)}x — won ${payout.toFixed(4)} SOL`,
+              message: `Cashed out at ${m.toFixed(2)}x — won +${payout.toFixed(4)} SOL`,
             });
-            if (wallet.publicKey) {
-              casino.cashout(store.roundId, Math.floor(m * 100));
-            }
+            // Record on-chain in background
+            if (wallet.publicKey) casino.cashout(store.roundId, Math.floor(m * 100));
           }}
           className="fixed bottom-24 left-1/2 -translate-x-1/2 z-50
                      px-10 py-5 text-2xl font-black rounded-2xl
