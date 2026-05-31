@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Space_Grotesk } from "next/font/google";
 import "./globals.css";
+import "@solana/wallet-adapter-react-ui/styles.css";
 import { WalletContextProvider } from "./providers";
 
 const spaceGrotesk = Space_Grotesk({

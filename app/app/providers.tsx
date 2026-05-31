@@ -4,7 +4,6 @@ import React, { ReactNode, useMemo } from "react";
 import { ConnectionProvider, WalletProvider } from "@solana/wallet-adapter-react";
 import { PhantomWalletAdapter } from "@solana/wallet-adapter-wallets";
 import { WalletModalProvider } from "@solana/wallet-adapter-react-ui";
-import "@solana/wallet-adapter-react-ui/styles.css";
 
 // Cast to avoid React 18 / wallet-adapter FC type mismatch
 const Conn = ConnectionProvider as unknown as React.FC<{
@@ -25,7 +24,7 @@ interface Props {
 }
 
 export function WalletContextProvider({ children }: Props) {
-  const endpoint = useMemo(() => "https://rpc.ankr.com/solana_devnet", []);
+  const endpoint = useMemo(() => "https://api.devnet.solana.com", []);
   const wallets = useMemo(() => [new PhantomWalletAdapter()], []);
 
   return (
