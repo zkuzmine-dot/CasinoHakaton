@@ -63,6 +63,11 @@ export function useGame() {
     const currentBet = currentBetRef.current;
     const cashedOutAt = useGameStore.getState().cashedOutAt;
 
+    const roundSeed = useGameStore.getState().roundSeed;
+    const vrfSeedHex = roundSeed
+      ? Buffer.from(roundSeed).toString("hex")
+      : undefined;
+
     store.addToHistory({
       roundId,
       crashPoint: finalMultiplier,
@@ -71,6 +76,7 @@ export function useGame() {
       payout: cashedOutAt != null && cashedOutAt < finalMultiplier && currentBet != null
         ? currentBet * cashedOutAt * 0.97
         : undefined,
+      vrfSeedHex,
     });
   }, [stopAnimation, store]);
 

@@ -14,7 +14,7 @@ export interface RoundResult {
   cashedOutAt?: number;
   won: boolean;
   payout?: number;
-  vrfSeed?: string;
+  vrfSeedHex?: string; // hex-encoded seed for provably fair verification
 }
 
 export interface ToastMessage {
@@ -68,7 +68,7 @@ interface GameState {
   resetRound: () => void;
 }
 
-export const useGameStore = create<GameState>((set, get) => ({
+export const useGameStore = create<GameState>((set, _get) => ({
   phase: "idle",
   multiplier: 1.0,
   crashPoint: null,

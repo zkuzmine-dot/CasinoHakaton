@@ -53,15 +53,18 @@ export default function BetPanel({ onRoundStart }: Props) {
     const m = game.cashOut();
     if (!m || !wallet.publicKey) return;
 
-    const cashoutX100 = Math.floor(m * 100);
-    const roundId = store.roundId;
-    await casino.cashout(roundId, cashoutX100);
-
     const payout = (currentBet ?? 0) * m * 0.97;
+
+    // Show feedback immediately — don't wait for on-chain confirmation
     store.addToast({
       type: "success",
       message: `Cashed out at ${m.toFixed(2)}x — won ${payout.toFixed(4)} SOL`,
     });
+
+    // Fire on-chain tx in background
+    const cashoutX100 = Math.floor(m * 100);
+    const roundId = store.roundId;
+    casino.cashout(roundId, cashoutX100);
   }, [game, casino, wallet.publicKey, store, currentBet]);
 
   const handleDeposit = useCallback(async () => {
