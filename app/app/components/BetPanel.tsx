@@ -40,7 +40,7 @@ export default function BetPanel({ onRoundStart }: Props) {
     if (!wallet.publicKey || !canBet) return;
 
     const roundId = Date.now(); // simple round ID using timestamp
-    const { seed, commitment, crashPoint } = prepareRound(roundId);
+    const { seed, commitment } = prepareRound(roundId);
 
     const sig = await casino.placeBet(betAmount, roundId, commitment);
     if (!sig) return;
@@ -204,7 +204,7 @@ export default function BetPanel({ onRoundStart }: Props) {
         ) : (
           <button
             onClick={handlePlaceBet}
-            disabled={!canBet || phase === "tx_pending"}
+            disabled={!canBet}
             className="w-full py-4 text-lg font-bold rounded-lg transition-all disabled:opacity-40 disabled:cursor-not-allowed
                        bg-[#1a2a1a] border-2 border-[#00ff88]/60 text-[#00ff88]
                        hover:bg-[#00ff88]/10 hover:border-[#00ff88]
