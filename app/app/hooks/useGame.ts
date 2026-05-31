@@ -5,7 +5,6 @@ import { useGameStore } from "../store/gameStore";
 import { deriveCrashPoint, generateRoundSeed, makeVrfCommitment } from "../lib/program";
 
 const ROUND_COUNTDOWN_MS = 5000;
-const TICK_MS = 50; // 20 fps for multiplier updates
 
 /**
  * Game state machine for the Crash game.
@@ -22,6 +21,8 @@ export function useGame() {
   const autoCashoutRef = useRef<number | null>(null);
   const currentBetRef = useRef<number | null>(null);
   const phaseRef = useRef(store.phase);
+  // Guard: auto-cashout fires only once per round
+  const cashoutFiredRef = useRef(false);
 
   // Keep refs in sync with store so animation loop doesn't stale-close
   useEffect(() => {
@@ -76,7 +77,8 @@ export function useGame() {
   const performAutoCashout = useCallback(
     (multiplier: number, onCashout: (m: number) => void) => {
       const target = autoCashoutRef.current;
-      if (target && multiplier >= target && currentBetRef.current) {
+      if (target && multiplier >= target && currentBetRef.current && !cashoutFiredRef.current) {
+        cashoutFiredRef.current = true;
         onCashout(target);
       }
     },
@@ -117,6 +119,7 @@ export function useGame() {
    */
   const startRound = useCallback(
     (seed: Uint8Array, roundId: number, onCashout: (multiplier: number) => void) => {
+      cashoutFiredRef.current = false; // reset per-round guard
       store.setRoundId(roundId);
       store.setRoundSeed(seed);
       store.setPhase("waiting");
@@ -150,6 +153,7 @@ export function useGame() {
 
     if (multiplier >= crashPoint) return null; // already crashed
 
+    cashoutFiredRef.current = true; // prevent auto-cashout from also firing
     stopAnimation();
     store.setCashedOut(multiplier);
 

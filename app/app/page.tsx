@@ -3,7 +3,7 @@
 import { useCallback, useEffect } from "react";
 import { useWallet } from "@solana/wallet-adapter-react";
 import dynamic from "next/dynamic";
-import { useGame, prepareRound } from "./hooks/useGame";
+import { useGame } from "./hooks/useGame";
 import { useCasino } from "./hooks/useCasino";
 import { useGameStore } from "./store/gameStore";
 
@@ -30,11 +30,12 @@ export default function HomePage() {
    */
   const handleRoundStart = useCallback(
     (seed: Uint8Array, roundId: number) => {
+      // Capture seed at round start — used for on-chain settle later
+      const capturedSeed = seed;
+
       const cleanup = game.startRound(seed, roundId, async (cashoutMultiplier) => {
-        // Auto-cashout triggered by game loop
         if (!wallet.publicKey) return;
         const cashoutX100 = Math.floor(cashoutMultiplier * 100);
-        await casino.cashout(roundId, cashoutX100);
 
         const currentBet = store.currentBet ?? 0;
         const payout = currentBet * cashoutMultiplier * 0.97;
@@ -43,15 +44,8 @@ export default function HomePage() {
           message: `Auto cashed out at ${cashoutMultiplier.toFixed(2)}x — won ${payout.toFixed(4)} SOL`,
         });
 
-        // Settle on-chain (demo: frontend settles since no backend crank)
-        const { seed: roundSeed } = prepareRound(roundId); // same seed used at bet time
-        // Note: in production, seed would come from server; here we reconstruct
-        await casino.settleRound(
-          roundId,
-          cashoutX100,
-          roundSeed,
-          wallet.publicKey
-        );
+        // Use the original seed from this round — not a new one
+        await casino.settleRound(roundId, cashoutX100, capturedSeed, wallet.publicKey);
         await casino.refreshBalances();
       });
 
