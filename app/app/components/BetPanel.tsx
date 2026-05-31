@@ -32,14 +32,16 @@ export default function BetPanel({ onRoundStart }: Props) {
   const handlePlaceBet = useCallback(async () => {
     if (!wallet.publicKey || !canBet) return;
 
-    const roundId = Date.now(); // simple round ID using timestamp
+    const roundId = Date.now();
     const { seed, commitment } = prepareRound(roundId);
 
-    const sig = await casino.placeBet(betAmount, roundId, commitment);
-    if (!sig) return;
-
+    // Start round immediately (optimistic) — don't block on tx confirmation
+    store.setCurrentBet(betAmount);
     store.setAutoCashout(autoCashout ? parseFloat(autoCashout) : null);
     onRoundStart(seed, roundId);
+
+    // Send on-chain tx in background
+    casino.placeBet(betAmount, roundId, commitment);
   }, [wallet.publicKey, canBet, casino, betAmount, store, autoCashout, onRoundStart]);
 
   const handleDeposit = useCallback(async () => {

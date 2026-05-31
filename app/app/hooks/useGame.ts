@@ -159,9 +159,22 @@ export function useGame() {
 
     if (multiplier >= crashPoint) return null; // already crashed
 
-    cashoutFiredRef.current = true; // prevent auto-cashout from also firing
+    cashoutFiredRef.current = true;
     stopAnimation();
     store.setCashedOut(multiplier);
+
+    // Add to history so it shows in RoundHistory after reset
+    const roundId = useGameStore.getState().roundId;
+    const roundSeed = useGameStore.getState().roundSeed;
+    const payout = (currentBetRef.current ?? 0) * multiplier * 0.97;
+    store.addToHistory({
+      roundId,
+      crashPoint, // the actual crash point (where it would have crashed)
+      cashedOutAt: multiplier,
+      won: true,
+      payout,
+      vrfSeedHex: roundSeed ? Buffer.from(roundSeed).toString("hex") : undefined,
+    });
 
     return multiplier;
   }, [stopAnimation, store]);
