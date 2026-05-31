@@ -174,7 +174,10 @@ export default function BetPanel({ onRoundStart }: Props) {
 
       {/* Bet amount selector */}
       <div>
-        <label className="text-xs text-gray-500 mb-2 block">Bet Amount</label>
+        <label className="text-xs text-gray-500 mb-2 flex items-center justify-between">
+          <span>Bet Amount</span>
+          <span className="text-gray-600">min 0.01 · max 1 SOL</span>
+        </label>
         <div className="flex gap-2 flex-wrap mb-2">
           {PRESET_BETS.map((preset) => (
             <button
