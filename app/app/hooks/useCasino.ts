@@ -247,7 +247,7 @@ export function useCasino() {
 
   /** Withdraw SOL from casino escrow back to wallet */
   const withdraw = useCallback(
-    async (solAmount: number): Promise<boolean> => {
+    async (requestedSol: number): Promise<boolean> => {
       const provider = getProvider();
       if (!provider || !wallet.publicKey) return false;
 
@@ -259,7 +259,27 @@ export function useCasino() {
         const [casinoPDA] = getCasinoPDA();
         const [escrowPDA] = getEscrowPDA(casinoPDA);
         const [playerPDA] = getPlayerPDA(wallet.publicKey);
-        const lamports = solToLamports(solAmount);
+
+        // Read the ACTUAL on-chain balance — may differ from local store
+        let onChainBalance = 0n;
+        try {
+          const acc = await program.account.playerAccount.fetch(playerPDA);
+          onChainBalance = BigInt(acc.balance.toString());
+        } catch {
+          store.addToast({ type: "error", message: "No casino account found. Deposit first." });
+          store.setPhase("idle");
+          return false;
+        }
+
+        // Use the minimum of requested and what's actually on-chain
+        const requestedLamports = solToLamports(requestedSol);
+        const lamports = requestedLamports > onChainBalance ? onChainBalance : requestedLamports;
+
+        if (lamports < 10_000_000n) { // < 0.01 SOL
+          store.addToast({ type: "error", message: "On-chain balance too low to withdraw (min 0.01 SOL)." });
+          store.setPhase("idle");
+          return false;
+        }
 
         const sig = await program.methods
           .withdraw(new BN(lamports.toString()))
@@ -272,9 +292,10 @@ export function useCasino() {
           })
           .rpc();
 
+        const solWithdrawn = lamportsToSol(Number(lamports));
         store.addToast({
           type: "success",
-          message: `Withdrew ${solAmount} SOL to wallet`,
+          message: `Withdrew ${solWithdrawn.toFixed(4)} SOL to wallet`,
           txSignature: sig,
         });
         await refreshBalances();

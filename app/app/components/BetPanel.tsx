@@ -18,6 +18,8 @@ export default function BetPanel({ onRoundStart }: Props) {
   const casino = useCasino();
   const [depositAmount, setDepositAmount] = useState("0.5");
   const [showDeposit, setShowDeposit] = useState(false);
+  const [showWithdraw, setShowWithdraw] = useState(false);
+  const [withdrawAmount, setWithdrawAmount] = useState("");
   const [autoCashout, setAutoCashout] = useState("");
 
   const phase = store.phase;
@@ -35,14 +37,18 @@ export default function BetPanel({ onRoundStart }: Props) {
     const roundId = Date.now();
     const { seed, commitment } = prepareRound(roundId);
 
-    // Deduct bet from local balance immediately
+    // Deduct balance locally immediately so UI reflects it
     store.setCasinoBalance(store.casinoBalance - betAmount);
     store.setCurrentBet(betAmount);
     store.setAutoCashout(autoCashout ? parseFloat(autoCashout) : null);
-    onRoundStart(seed, roundId);
 
-    // Record bet on-chain in background (non-blocking)
-    casino.placeBet(betAmount, roundId, commitment);
+    // Show Phantom approval BEFORE countdown — proper Web3 flow
+    store.setPhase("tx_pending");
+    store.setTxPending("Confirm in Phantom wallet...");
+    await casino.placeBet(betAmount, roundId, commitment);
+
+    // Start round whether tx succeeded or not (balance already deducted locally)
+    onRoundStart(seed, roundId);
   }, [wallet.publicKey, canBet, casino, betAmount, store, autoCashout, onRoundStart]);
 
   const handleDeposit = useCallback(async () => {
@@ -53,9 +59,12 @@ export default function BetPanel({ onRoundStart }: Props) {
   }, [casino, depositAmount]);
 
   const handleWithdraw = useCallback(async () => {
-    if (casinoBalance <= 0) return;
-    await casino.withdraw(casinoBalance);
-  }, [casino, casinoBalance]);
+    const amount = parseFloat(withdrawAmount);
+    if (isNaN(amount) || amount <= 0) return;
+    await casino.withdraw(amount);
+    setShowWithdraw(false);
+    setWithdrawAmount("");
+  }, [casino, withdrawAmount]);
 
   if (!wallet.connected) {
     return (
@@ -81,7 +90,11 @@ export default function BetPanel({ onRoundStart }: Props) {
             Deposit
           </button>
           <button
-            onClick={handleWithdraw}
+            onClick={() => {
+              setWithdrawAmount(casinoBalance.toFixed(4));
+              setShowWithdraw(!showWithdraw);
+              setShowDeposit(false);
+            }}
             disabled={casinoBalance <= 0 || phase === "flying"}
             className="px-3 py-1 text-xs rounded border border-gray-600 text-gray-400 hover:border-gray-400 transition disabled:opacity-40"
           >
@@ -89,6 +102,43 @@ export default function BetPanel({ onRoundStart }: Props) {
           </button>
         </div>
       </div>
+
+      {/* Withdraw panel */}
+      {showWithdraw && (
+        <div className="space-y-2">
+          <p className="text-xs text-gray-500">
+            Available on-chain: up to <span className="text-white">{casinoBalance.toFixed(4)} SOL</span>
+          </p>
+          <div className="flex gap-2">
+            <input
+              type="number"
+              min="0.01"
+              step="0.01"
+              max={casinoBalance}
+              value={withdrawAmount}
+              onChange={(e) => setWithdrawAmount(e.target.value)}
+              className="flex-1 bg-[#1a1d26] border border-gray-700 rounded px-3 py-2 text-white text-sm focus:outline-none focus:border-gray-500"
+            />
+            <button
+              onClick={handleWithdraw}
+              className="px-4 py-2 bg-gray-700 text-white text-sm font-bold rounded hover:bg-gray-600 transition"
+            >
+              Confirm
+            </button>
+          </div>
+          <div className="flex gap-2">
+            {[0.25, 0.5, 1.0].map(f => (
+              <button
+                key={f}
+                onClick={() => setWithdrawAmount((casinoBalance * f).toFixed(4))}
+                className="flex-1 text-xs py-1 rounded bg-[#0d0f14] border border-gray-800 text-gray-500 hover:text-white transition"
+              >
+                {f === 1 ? "Max" : `${f * 100}%`}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Deposit panel */}
       {showDeposit && (

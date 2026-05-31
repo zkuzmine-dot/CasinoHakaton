@@ -49,9 +49,10 @@ export default function MultiplierDisplay() {
 
   if (phase === "tx_pending") {
     return (
-      <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-        <div className="w-8 h-8 border-2 border-[#00ff88] border-t-transparent rounded-full animate-spin" />
-        <p className="text-gray-400 text-sm mt-3">{txMsg || "Confirming on Solana..."}</p>
+      <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none gap-4">
+        <div className="w-10 h-10 border-2 border-[#00ff88] border-t-transparent rounded-full animate-spin" />
+        <p className="text-white font-bold text-lg">{txMsg || "Confirm in Phantom..."}</p>
+        <p className="text-gray-500 text-xs">Check your wallet extension</p>
       </div>
     );
   }
